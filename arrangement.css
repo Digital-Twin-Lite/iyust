@@ -1,0 +1,63 @@
+#arrangement {
+  position: absolute;
+  right: 20px;
+  top: 170px;
+  width: 260px;
+  max-height: 65vh;
+  overflow: auto;
+  padding: 14px;
+  background: #1f2224;
+  border: 1px solid #2f3336;
+  border-radius: 8px;
+  color: #efebe3;
+  font:
+    14px "Inter Tight",
+    sans-serif;
+}
+#arrangement summary {
+  cursor: pointer;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+#arrangement label {
+  display: block;
+  margin: 12px 0;
+}
+#arrangement select,
+#arrangement input:not([type="checkbox"]) {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 6px;
+  padding: 8px;
+  background: #16181a;
+  color: #efebe3;
+  border: 1px solid #2f3336;
+  border-radius: 4px;
+}
+#arrangement button {
+  margin: 6px 0;
+  padding: 8px;
+  border: 2px solid #c4552d;
+  border-radius: 4px;
+  background: none;
+  color: #efebe3;
+  cursor: pointer;
+}
+#arrangement p {
+  color: #a39e92;
+  line-height: 1.5;
+}
+#layout-save {
+  background: #c4552d !important;
+  color: white !important;
+}
+@media (max-width: 600px) {
+  #arrangement {
+    top: auto;
+    bottom: 110px;
+    right: 12px;
+    width: 250px;
+    max-height: 55vh;
+  }
+}

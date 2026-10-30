@@ -2,7 +2,7 @@
 // Shared team code: change this phrase to change access to the editor.
 const EDITOR_ACCESS_CODE = 'экспозиция-команда';
 
-export function annotationEditor({THREE, canvas, camera, controls, getRoot, fly, fit, createPoints, notify}) {
+export function annotationEditor({THREE, canvas, camera, controls, getRoot, layout, fly, fit, createPoints, notify}) {
   const $ = id => document.getElementById(id);
   const edit = $('edit-mode'), start = $('tour-start'), panel = $('point-panel');
   const dialog = $('point-editor'), form = $('point-form');
@@ -17,7 +17,8 @@ export function annotationEditor({THREE, canvas, camera, controls, getRoot, fly,
   const key = () => `object-notes:annotations:v1:${model.id}`;
 
   function refresh() {
-    createPoints(points.map(p => [p.position, p.title]));
+    points.forEach(p => layout?.bindPoint(p));
+    createPoints(points.map(p => layout ? [p.position, p.title, p] : [p.position, p.title]));
     edit.disabled = !ready;
     start.disabled = !ready || !points.length;
     $('points-download').disabled = !ready;
@@ -135,7 +136,7 @@ export function annotationEditor({THREE, canvas, camera, controls, getRoot, fly,
     if (!ready || !editing || current !== generation) { notify('Режим или модель изменились. Выберите файл заново.'); return; }
     if (data.modelId !== model.id) { notify('Этот файл относится к другой модели. Сначала выберите соответствующую модель.'); return; }
     if (!window.confirm(`Заменить все текущие точки (${points.length}) точками из файла (${data.points.length})? Для резервной копии текущих точек нажмите «Отмена», затем «Скачать точки».`)) return;
-    const next = data.points.map(p => ({title: p.title, description: p.description, position: p.position,
+    const next = data.points.map(p => ({title: p.title, description: p.description, position: p.position, ...(p.anchor ? {anchor:p.anchor} : {}),
       ...(p.view ? {view: {position: p.view.position, target: p.view.target}} : {})}));
     const previous = {selected, touring};
     selected = -1; touring = false;
@@ -165,6 +166,7 @@ export function annotationEditor({THREE, canvas, camera, controls, getRoot, fly,
 
   function save(next) {
     if (!ready || !editing) return false;
+    next.forEach(p => layout?.bindPoint(p));
     try { localStorage.setItem(key(), JSON.stringify(next)); }
     catch { notify('Не удалось сохранить точки в браузере. Проверьте доступ к хранилищу.'); return false; }
     points = next;
@@ -174,11 +176,18 @@ export function annotationEditor({THREE, canvas, camera, controls, getRoot, fly,
 
   function visit(index) {
     if (!ready || !points[index]) return;
-    selected = index;
+    const previous = selected;
     const p = points[index], root = getRoot();
-    const target = root.localToWorld(new THREE.Vector3(...(p.view?.target || p.position)));
+    if (layout && !layout.resolve(p).visible) {
+      const direction = index < previous ? -1 : 1;
+      const next = index + direction;
+      if (next >= 0 && next < points.length) return visit(next);
+      return;
+    }
+    selected = index;
+    const target = root.localToWorld(new THREE.Vector3(...(layout ? layout.resolve(p, p.view?.target || p.position).position : (p.view?.target || p.position))));
     const position = p.view
-      ? root.localToWorld(new THREE.Vector3(...p.view.position))
+      ? root.localToWorld(new THREE.Vector3(...(layout ? layout.resolve(p, p.view.position).position : p.view.position)))
       : target.clone().addScaledVector(new THREE.Vector3(.72,.34,1).normalize(), 1.8);
     fly(position, target, 850);
     showPanel();
@@ -272,7 +281,7 @@ export function annotationEditor({THREE, canvas, camera, controls, getRoot, fly,
     pointers.delete(event.pointerId);
     const click = down && down.id === event.pointerId;
     down = null;
-    if (!click || !editing || !ready || dialog.open) return;
+    if (canvas.dataset.arranging === 'true' || !click || !editing || !ready || dialog.open) return;
     const rect = canvas.getBoundingClientRect();
     raycaster.setFromCamera(new THREE.Vector2((event.clientX-rect.left)/rect.width*2-1, -(event.clientY-rect.top)/rect.height*2+1), camera);
     const hit = raycaster.intersectObject(getRoot(), true).find(hit => {
@@ -287,6 +296,7 @@ export function annotationEditor({THREE, canvas, camera, controls, getRoot, fly,
 
   return {
     select(index) { if (touring) return; editing ? openEditor(index) : visit(index); },
+    updateVisibility() { if (points[selected] && layout && !layout.resolve(points[selected]).visible) { selected = -1; touring = false; showPanel(); } },
     reset: exitTour,
     unload() { generation++; dragged = null; ready = false; touring = false; editing = false; selected = -1; points = []; controls.enabled = true; dialog.close(); accessDialog.close(); refresh(); },
     load(config) {
